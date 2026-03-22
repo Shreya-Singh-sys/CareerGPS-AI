@@ -1,0 +1,412 @@
+// const Groq = require("groq-sdk");
+// const PDFParser = require("pdf2json"); // Nayi library
+// const User = require('../models/User');
+
+// const groq = new Groq({ apiKey: "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" });
+// exports.analyzeResume = async (req, res) => {
+//     try {
+//         const { email } = req.body;
+//         if (!email || !req.file) {
+//             return res.status(400).json({ message: "Email or File missing" });
+//         }
+
+//         console.log("AI Analysis Request for:", email);
+
+//         // 1. PDF Text Extraction (Using pdf2json)
+//         const pdfParser = new PDFParser(null, 1); // 1 means text-only mode
+
+//         const resumeText = await new Promise((resolve, reject) => {
+//             pdfParser.on("pdfParser_dataError", (errData) => reject(errData.parserError));
+//             pdfParser.on("pdfParser_dataReady", (pdfData) => {
+//                 resolve(pdfParser.getRawTextContent());
+//             });
+//             pdfParser.parseBuffer(req.file.buffer);
+//         });
+
+//         console.log("PDF Text Extracted (Length):", resumeText.length);
+
+//         // 2. Gemini AI Prompt (Corrected to gemini-1.5-flash)
+        
+        
+//         const prompt = `
+//             Analyze this resume text and provide a professional career analysis in STRICT JSON format.
+//             Do not include any markdown like \`\`\`json. Return ONLY the JSON object.
+//             IMPORTANT: In the "skills" array, identify and list ALL relevant technical skills found, 
+//             but rank them by importance/relevance to the person's profile.
+
+//             Structure:
+//             {
+//                 "readinessScore": number,
+//                 "atsScore": number,
+//                 "skills": [{"name": string, "level": "Advanced" | "Intermediate" | "Basic", "verified": boolean}],
+//                 "insights": [string],
+//                 "improvements": [{"tip": string, "impact": "High" | "Medium", "icon": "emoji_icon"}]
+//             }
+
+//             Resume Text:
+//             ${resumeText}
+//         `;
+//         const chatCompletion = await groq.chat.completions.create({
+//             messages: [{ role: "user", content: prompt }],
+//             model: "llama-3.3-70b-versatile", // Ya "llama3-8b-8192" fast speed ke liye
+//             response_format: { type: "json_object" } // Groq automatically JSON enforce karta hai
+//         });
+
+//         // 3. AI Processing
+//         const result = await model.generateContent(prompt);
+//         const responseText = result.response.text();
+        
+//         // JSON Cleaning
+//         const cleanJsonString = responseText.replace(/```json|```/g, "").trim();
+//         const analysisResult = JSON.parse(cleanJsonString);
+
+//         // 4. Update Database
+//         const user = await User.findOneAndUpdate(
+//             { email: email.trim() },
+//             { analysisResult, source: 'resume', lastAnalyzed: new Date() },
+//             { new: true }
+//         );
+
+//         if (!user) return res.status(404).json({ message: "User not found" });
+
+//         return res.status(200).json({ 
+//             message: "AI Analysis Complete", 
+//             analysis: analysisResult,
+//             resumeText: resumeText // Naya field for raw resume text 
+//         });
+
+//     } catch (err) {
+//         console.error("DETAILED ERROR:", err);
+//         res.status(500).json({ message: "Error: " + err.message });
+//     }
+// };
+
+// // analysisController.js mein ye naya function add karein
+// // 
+// exports.optimizeResume = async (req, res) => {
+//     try {
+//         const { resumeText, jobDescription } = req.body;
+//         console.log("Optimizing for text length:", resumeText?.length);
+
+//         const prompt = `
+//             You are a professional resume writer. Rewrite the following resume text to be more professional and ATS-friendly.
+//             Original Text: ${resumeText}
+//             Job Description: ${jobDescription || "Standard Professional Role"}
+
+//             Return ONLY a valid JSON object:
+//             {
+//                 "optimizedText": "The entire rewritten resume content",
+//                 "changesMade": ["Point 1", "Point 2"]
+//             }
+//         `;
+
+//         const chatCompletion = await groq.chat.completions.create({
+//             messages: [{ role: "user", content: prompt }],
+//             model: "llama-3.3-70b-versatile",
+//             response_format: { type: "json_object" }
+//         });
+
+//         const result = await model.generateContent(prompt);
+//         const responseText = result.response.text();
+        
+//         // JSON clean karne ka sabse sahi tarika
+//         const cleanJson = responseText.replace(/```json|```/g, "").trim();
+//         const optimizedData = JSON.parse(cleanJson);
+
+//         res.status(200).json(optimizedData);
+//     } catch (err) {
+//         console.error("Optimization Error:", err);
+//         res.status(500).json({ message: "AI failed to optimize: " + err.message });
+//     }
+// };
+
+// // analysisController.js mein ye naya function add karein
+// exports.simulateCareer = async (req, res) => {
+//     try {
+//         const { goal, currentSkills, targetSkills, months } = req.body;
+        
+//         // Debugging ke liye
+//         console.log("Simulating for:", goal, "Months:", months);
+
+        
+//         const prompt = `
+//             You are a professional career coach. Generate a step-by-step career roadmap.
+//             Target Goal: ${goal}
+//             Current Skills: ${currentSkills}
+//             Additional Skills to learn: ${targetSkills}
+//             Duration: ${months} months.
+
+//             Return ONLY a valid JSON array of objects with this structure:
+//             [
+//               {
+//                 "month": "Month 1",
+//                 "title": "Topic Name",
+//                 "description": "Short explanation",
+//                 "type": "learn", 
+//                 "skills": ["skill1", "skill2"]
+//               }
+//             ]
+//             Types allowed: "learn", "build", "apply", "milestone".
+//             Important: Do not include any text before or after the JSON array.
+//         `;
+//         const chatCompletion = await groq.chat.completions.create({
+//             messages: [{ role: "user", content: prompt }],
+//             model: "llama-3.3-70b-versatile",
+//             response_format: { type: "json_object" }
+//         });
+
+//         const result = await model.generateContent(prompt);
+//         const responseText = result.response.text();
+        
+//         // JSON ko clean karne ka robust tareeka
+//         const cleanJsonString = responseText.replace(/```json|```/g, "").trim();
+        
+//         let timelineData;
+//         try {
+//             timelineData = JSON.parse(cleanJsonString);
+//         } catch (parseErr) {
+//             console.error("Gemini Raw Response:", responseText);
+//             return res.status(500).json({ message: "AI response was not valid JSON" });
+//         }
+
+//         res.status(200).json(timelineData);
+
+//     } catch (err) {
+//         console.error("SIMULATION ERROR:", err);
+//         res.status(500).json({ message: "Server Error: " + err.message });
+//     }
+// };
+
+const Groq = require("groq-sdk");
+const PDFParser = require("pdf2json");
+const User = require('../models/User');
+
+// Groq Setup (Apni API Key yahan dalein)
+const groq = new Groq({ apiKey: "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" });
+
+exports.analyzeResume = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || !req.file) {
+            return res.status(400).json({ message: "Email or File missing" });
+        }
+
+        console.log("AI Analysis Request for:", email);
+
+        // 1. PDF Text Extraction
+        const pdfParser = new PDFParser(null, 1);
+        const resumeText = await new Promise((resolve, reject) => {
+            pdfParser.on("pdfParser_dataError", (errData) => reject(errData.parserError));
+            pdfParser.on("pdfParser_dataReady", () => {
+                resolve(pdfParser.getRawTextContent());
+            });
+            pdfParser.parseBuffer(req.file.buffer);
+        });
+
+        console.log("PDF Text Extracted (Length):", resumeText.length);
+
+        // 2. Groq AI Prompt
+        const prompt = `
+            Analyze this resume text and provide a professional career analysis in STRICT JSON format.
+            Do not include any introductory text or markdown code blocks. Return ONLY the JSON object.
+            
+            Structure:
+            {
+                "readinessScore": number,
+                "atsScore": number,
+                "skills": [{"name": string, "level": "Advanced" | "Intermediate" | "Basic", "verified": true}],
+                "insights": [string],
+                "improvements": [{"tip": string, "impact": "High" | "Medium", "icon": "emoji_icon"}]
+            }
+
+            Resume Text:
+            ${resumeText}
+        `;
+
+        // 3. Groq API Call
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile", // Ya "llama3-8b-8192" fast speed ke liye
+            response_format: { type: "json_object" } // Groq automatically JSON enforce karta hai
+        });
+
+        const analysisResult = JSON.parse(chatCompletion.choices[0].message.content);
+
+        // 4. Update Database
+        const user = await User.findOneAndUpdate(
+            { email: email.trim() },
+            { analysisResult, source: 'resume', lastAnalyzed: new Date() },
+            { new: true }
+        );
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        return res.status(200).json({ 
+            message: "AI Analysis Complete", 
+            analysis: analysisResult,
+            resumeText: resumeText 
+        });
+
+    } catch (err) {
+        console.error("GROQ ANALYSIS ERROR:", err);
+        res.status(500).json({ message: "Error: " + err.message });
+    }
+};
+
+exports.optimizeResume = async (req, res) => {
+    try {
+        const { resumeText, jobDescription } = req.body;
+
+        const prompt = `
+            You are a professional resume writer. Rewrite the following resume text to be more professional and ATS-friendly.
+            Original Text: ${resumeText}
+            Job Description: ${jobDescription || "Standard Professional Role"}
+
+            Return ONLY a valid JSON object:
+            {
+                "optimizedText": "The entire rewritten resume content",
+                "changesMade": ["Point 1", "Point 2"]
+            }
+        `;
+
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
+
+        const optimizedData = JSON.parse(chatCompletion.choices[0].message.content);
+        res.status(200).json(optimizedData);
+
+    } catch (err) {
+        console.error("GROQ OPTIMIZE ERROR:", err);
+        res.status(500).json({ message: "AI failed to optimize: " + err.message });
+    }
+};
+
+exports.simulateCareer = async (req, res) => {
+    try {
+        const { goal, currentSkills, targetSkills, months } = req.body;
+
+        const prompt = `
+            You are a career coach. Generate a JSON array for a career roadmap.
+            Target Goal: ${goal}, Current Skills: ${currentSkills}, Target: ${targetSkills}, Duration: ${months} months.
+            
+            Format: [{ "month": "Month 1", "title": "...", "description": "...", "type": "learn", "skills": [] }]
+        `;
+
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
+
+        // Kuch models array ko ek object key ke andar wrap kar dete hain
+        const rawData = JSON.parse(chatCompletion.choices[0].message.content);
+        const timelineData = Array.isArray(rawData) ? rawData : rawData.roadmap || rawData.timeline || Object.values(rawData)[0];
+
+        res.status(200).json(timelineData);
+
+    } catch (err) {
+        console.error("GROQ SIMULATION ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
+    }
+};
+
+exports.generateInterviewQuestions = async (req, res) => {
+    try {
+        const { role } = req.body;
+        const prompt = `
+            Generate exactly 10 professional interview questions for the role: ${role}.
+            Return ONLY a JSON object with a key named "questions".
+            
+            Format:
+            {
+              "questions": [
+                {
+                  "question": "string",
+                  "sampleFeedback": { "correctness": 80, "confidence": 70, "clarity": 85, "improvements": "string" }
+                }
+              ]
+            }
+        `;
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
+        const rawData = JSON.parse(chatCompletion.choices[0].message.content);
+        
+        // Safety check: Agar questions key nahi hai toh direct array check karo
+        const questions = rawData.questions || (Array.isArray(rawData) ? rawData : []);
+
+        res.status(200).json(questions);
+    } catch (err) {
+        console.error("MOCK ERROR:", err);
+        res.status(500).json({ message: "Failed to generate: " + err.message });
+    }
+};
+
+exports.analyzeInterviewAnswer = async (req, res) => {
+    try {
+        const { question, answer, role } = req.body;
+
+        const prompt = `
+            Act as an expert interviewer for the role of ${role}.
+            Question: ${question}
+            User's Answer: ${answer}
+
+            Analyze the answer and provide scores (0-100) and feedback in STRICT JSON format.
+            {
+                "correctness": number,
+                "confidence": number,
+                "clarity": number,
+                "improvements": "Detailed 1-2 line feedback on what was missing or how to improve."
+            }
+        `;
+
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
+
+        const feedback = JSON.parse(chatCompletion.choices[0].message.content);
+        res.status(200).json(feedback);
+    } catch (err) {
+        console.error("ANALYSIS ERROR:", err);
+        res.status(500).json({ message: "Failed to analyze answer" });
+    }
+};
+
+exports.getSkillGapAnalysis = async (req, res) => {
+    try {
+        const { targetRole, userSkills } = req.body;
+
+        const prompt = `
+            Compare the user's current skills with the requirements for the role of ${targetRole}.
+            User's Current Skills: ${userSkills}
+            "Return exactly 4 resources. For each, specify 'type' as either 'Course', 'Video', or 'Book'. The 'platform' must be 'Udemy' for courses, 'YouTube' for videos, and 'Amazon' for books."
+
+            Return ONLY a JSON object with:
+            1. "requiredSkills": Array of objects { name, level (target %), userLevel (current %), has (boolean), priority ("critical"|"moderate"|"optional") }
+            2. "roadmapSteps": Array of objects { title, description, duration, status ("completed"|"current"|"locked") }
+            3. "resources": [
+            {"title":["Name of course","book","video"],
+            "Platform": The most relevant platform (e.g., 'Udemy', 'Amazon', 'YouTube', 'Medium'),
+            "Type": ["Course","Book","Video","Article"],
+            "query': A specific search string for that resource.
+Example: If it's a book, platform should be 'Amazon' and type 'Book'. If it's a course, platform 'Coursera' and type 'Course'."}]
+        `;
+        //3. "resources": Array of objects { title, platform, type }
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
+
+        res.status(200).json(JSON.parse(chatCompletion.choices[0].message.content));
+    } catch (err) {
+        res.status(500).json({ message: "Gap analysis failed" });
+    }
+};

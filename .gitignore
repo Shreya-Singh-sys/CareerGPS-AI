@@ -1,0 +1,28 @@
+# 1. Python Virtual Environments (Sabse important)
+venv/
+.venv/
+env/
+.env/
+ENV/
+bin/
+lib/
+include/
+share/
+pyvenv.cfg
+
+# 2. Node.js Dependencies
+**/node_modules/
+
+# 3. Environment Variables & Secrets
+**/.env
+**/.env.local
+
+# 4. Python Cache
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# 5. Build & Logs
+**/dist/
+**/build/
+*.log
