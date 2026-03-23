@@ -755,6 +755,8 @@ const JobPortal = () => {
   const [loading, setLoading] = useState(false);
   const [featuredJobs, setFeaturedJobs] = useState([]); // Recent jobs ke liye state
   const [isFeaturedLoading, setIsFeaturedLoading] = useState(true); 
+  const [marketSkills, setMarketSkills] = useState([]);
+  const [jobTrends, setJobTrends] = useState([]);
 
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -855,6 +857,22 @@ const JobPortal = () => {
     }
   };
   loadRecentJobs();
+}, []);
+
+  useEffect(() => {
+  const fetchMarketInsights = async () => {
+    try {
+      // Is route ko hum RapidAPI/Adzuna se link karenge backend mein
+      const response = await fetch("http://localhost:5000/api/jobs/live-trends");
+      const data = await response.json();
+      
+      if (data.skills) setMarketSkills(data.skills);
+      if (data.jobs) setJobTrends(data.jobs);
+    } catch (error) {
+      console.error("Market insights fetch error:", error);
+    }
+  };
+  fetchMarketInsights();
 }, []);
 
   return (
@@ -1130,7 +1148,7 @@ const JobPortal = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {trendingSkills.map((skill, i) => (
+                {(marketSkills.length > 0 ? marketSkills : trendingSkills).map((skill, i) => (
                   <div key={skill.name} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium text-foreground">{skill.name}</span>
@@ -1159,9 +1177,9 @@ const JobPortal = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {trendingRoles.map((item, i) => (
+                {(jobTrends.length > 0 ? jobTrends : trendingRoles).map((item, i) => (
                   <motion.div
-                    key={item.role}
+                    key={item.role || item.title}
                     {...fadeUp(0.65 + i * 0.06)}
                     className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                   >
