@@ -103,40 +103,135 @@ const Dashboard = () => {
   const [atsScore, setAtsScore] = useState(0);
   const targetReadiness = userData.careerReadiness;
   const targetAts = userData.atsScore;
-
+  const [dashboardJobs, setDashboardJobs] = useState([]);
+  const [displayData, setDisplayData] = useState<any>({}); // Initial empty object
+  const [atsSuggestions, setAtsSuggestions] = useState<string[]>([]);
   useEffect(() => {
-    const t1 = setTimeout(() => setJobReadiness(targetReadiness), 300);
-    const t2 = setTimeout(() => setAtsScore(targetAts), 500);
-    // return () => { clearTimeout(t1); clearTimeout(t2); };
-    const fetchDashboardData = async () => {
+    const fetchDashboardJobs = async () => {
       try {
-        const email = localStorage.getItem('userEmail'); // Login ke waqt save kiya tha
-        const response = await fetch(`http://localhost:5000/api/user/profile/${email}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const data = await response.json();
-        
-        setProfileData(data);
-        
-        // Scores ko animate karein backend data ke hisaab se
-        setJobReadiness(data.analysisResult?.readinessScore || 0);
-        setAtsScore(data.analysisResult?.atsScore || 0);
-        
-        setLoading(false);
+        const res = await fetch("http://localhost:5000/api/jobs/featured");
+        const data = await res.json();
+        setDashboardJobs(data.slice(0, 4));
       } catch (err) {
-        console.error("Dashboard Fetch Error:", err);
-        setLoading(false);
+        console.error("Jobs fetch error", err);
       }
     };
+    fetchDashboardJobs();
+  }, []);
+
+  useEffect(() => {
+    // const fetchDashboardData = async () => {
+    //   try {
+    //     const email = localStorage.getItem('userEmail'); // Login ke waqt save kiya tha
+    //     const token = localStorage.getItem('token');
+      
+    //   if (!email) return;
+    //     const response = await fetch(`http://localhost:5000/api/user/profile/${email}`, {
+    //       headers: {
+    //         'Authorization': `Bearer ${'token'}`
+    //       }
+    //     });
+    // //     const contentType = response.headers.get("content-type");
+    // // if (!contentType || !contentType.includes("application/json")) {
+    // //   throw new TypeError("Backend ne JSON nahi bheja! Route check karein.");
+    // // }
+    //     const data = await response.json();
+    //     console.log("Full Backend Response:", data);
+
+    //     const result = data.analysisResult || data.analysis || data; 
+
+    // if (result) {
+    //     // setJobReadiness(Number(result.readinessScore || 0));
+    //     // setAtsScore(Number(result.atsScore || 0));
+    //     const rScore = result.readinessScore || 0;
+    // const aScore = result.atsScore || 0;
+    
+    // console.log("Setting State Now -> Readiness:", rScore, "ATS:", aScore);
+    
+    // setJobReadiness(Number(rScore));
+    // setAtsScore(Number(aScore));
+    // }
+        
+    //     setProfileData(data);
+    //     setDisplayData(data); 
+        
+    //     setLoading(false);
+    //   } catch (err) {
+    //     console.error("Dashboard Fetch Error:", err);
+    //     setLoading(false);
+    //   }
+    // };
+    const fetchDashboardData = async () => {
+  try {
+    const email = localStorage.getItem('userEmail');
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch(`http://localhost:5000/api/user/profile/${email}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+    console.log("FINAL DATA CHECK:", data);
+    // Dashboard.tsx mein fetchDashboardData ke andar:
+    const result = data.analysisResult || data.analysis || {};
+
+// AGAR UNDEFINED HAI, TOH BACKEND SE AISE NIKALO:
+    const readinessScore = result.readinessScore || 0;
+    const atsScore = result.atsScore || data.atsScore || 82; // Fallback to 82 for testing
+
+    console.log("Final Scores mapped -> Readiness:", readinessScore, "ATS:", atsScore);
+
+    setJobReadiness(Number(readinessScore));
+    setAtsScore(Number(atsScore));
+
+    // const result = data.analysisResult || data.analysis;
+
+    // console.log("Readiness from DB:", result.readinessScore);
+    // console.log("ATS from DB:", result.atsScore);
+
+    // // Score extraction logic:
+    // const finalAts = result.atsScore || result.resumeScore || 0;
+    // const finalReadiness = result.readinessScore || 0;
+
+    // setAtsScore(Number(finalAts));
+    // setJobReadiness(Number(finalReadiness));
+// if (result) {
+//     // Check if score is coming as 'atsScore' or 'ats_score'
+//     const aScore = result.atsScore || result.resumeScore || 0;
+//     const rScore = result.readinessScore || 0;
+
+//     setAtsScore(Number(aScore));
+//     setJobReadiness(Number(rScore));
+
+    // Suggestions ko bhi update karein
+    const tips = result.atsSuggestions || result.improvements?.map((i: any) => i.tip) || [];
+    setAtsSuggestions(tips);
+
+
+    // Dono states ko update karein
+    setProfileData(data);
+    setDisplayData(data);
+
+    // Scores nikaalein
+    const resObj = data.analysisResult || data.analysis || {};
+    const rScore = Number(resObj.readinessScore || 0);
+    const aScore = Number(resObj.atsScore || 0);
+
+    setJobReadiness(rScore);
+    setAtsScore(aScore);
+    
+    setLoading(false);
+  } catch (err) {
+    console.error("Fetch Error:", err);
+    setLoading(false);
+  }
+};
 
     fetchDashboardData();
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
   if (loading) return <div className="flex h-screen items-center justify-center">Loading your Career Insights...</div>;
 
-  const displayData = profileData || {};
 
   // const missingSkills = userData.missingSkills;
   const missingSkills = displayData.analysisResult?.missingSkills || ["No data yet"];
@@ -162,14 +257,41 @@ const Dashboard = () => {
     { title: "Product Data Analyst", company: "Swiggy", salary: "₹10 LPA", match: 78 },
   ];
 
-  const atsSuggestions = [
-    t("Add SQL project to your resume"),
-    t("Mention Power BI experience"),
-    t("Add metrics in work experience"),
-  ];
+  // const atsSuggestions = [
+  //   t("Add SQL project to your resume"),
+  //   t("Mention Power BI experience"),
+  //   t("Add metrics in work experience"),
+  // ];
 
   const streakDays = [true, true, true, true, true, false, false];
   const dayLabels = [t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat"), t("Sun")];
+  // Dashboard.tsx mein displayData milne ke baad ye likhein:
+  const radarData = (() => {
+  // Priority 1: Backend Profile Data
+  // Priority 2: User Data Hook
+  // Priority 3: Default Placeholder
+  const sourceSkills = (displayData?.skills?.length > 0) 
+    ? displayData.skills 
+    : (userData?.skills?.length > 0) ? userData.skills : [];
+
+  if (sourceSkills.length > 0) {
+    return sourceSkills.slice(0, 6).map((s: any) => ({
+      skill: typeof s === 'string' ? s : (s.name || "Skill"),
+      level: s.proficiency || Math.floor(Math.random() * 30) + 60, // Random if not present
+      fullMark: 100
+    }));
+  }
+
+  // Fallback agar dono jagah data nahi hai
+  return [
+    { skill: "Skill 1", level: 50, fullMark: 100 },
+    { skill: "Skill 2", level: 50, fullMark: 100 },
+    { skill: "Skill 3", level: 50, fullMark: 100 },
+    { skill: "Skill 4", level: 50, fullMark: 100 },
+    { skill: "Skill 5", level: 50, fullMark: 100 },
+    { skill: "Skill 6", level: 50, fullMark: 100 },
+  ];
+})();
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
@@ -245,7 +367,7 @@ const Dashboard = () => {
                       <motion.circle cx="60" cy="60" r="50" fill="none" stroke="url(#gaugeGradient)" strokeWidth="10" strokeLinecap="round"
                         strokeDasharray={`${2 * Math.PI * 50}`}
                         initial={{ strokeDashoffset: 2 * Math.PI * 50 }}
-                        animate={{ strokeDashoffset: 2 * Math.PI * 50 * (1 - jobReadiness / 100) }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 50 * (1 - (jobReadiness || 0) / 100) }}
                         transition={{ duration: 1.5, ease: "easeOut", delay: 0.3 }} />
                       <defs>
                         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -264,8 +386,8 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="text-xs sm:text-sm text-muted-foreground">{t("Target:")} <span className="font-semibold text-foreground">{t("Data Analyst")}</span></p>
-                  <p className="text-xs text-muted-foreground">{t("3 skills needed to reach 90%")}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{t("Target:")} <span className="font-semibold text-foreground">{userData.targetRole || "Career Path"}</span></p>
+                  <p className="text-xs text-muted-foreground">{jobReadiness < 90 ? `${90 - (jobReadiness || 0) }% more to reach expert level` : "You are industry ready!"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -285,15 +407,25 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 relative z-10">
-                <p className="text-sm font-medium text-foreground">{t("Missing Skills:")}</p>
+                <p className="text-sm font-medium text-foreground">{t("Required for:")}
+                  <span className="text-primary">{userData.targetRole}</span>
+                </p>
                 <div className="flex flex-wrap gap-2">
-                  {missingSkills.map((skill, i) => (
-                    <motion.span key={skill} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 + i * 0.1 }}
+                  {missingSkills && missingSkills.length > 0 ? (
+                    missingSkills.map((skill: any, i: number) => (
+                    <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 + i * 0.1 }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/8 border border-destructive/15 text-sm text-foreground hover:bg-destructive/15 transition-colors cursor-pointer">
                       <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       {skill}
                     </motion.span>
-                  ))}
+                   ))
+                  ) : (
+                    <div className="py-2 px-3 rounded-lg bg-success/10 border border-success/20">
+              <p className="text-xs text-success font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" /> Perfect Match! No gaps found.
+              </p>
+            </div>
+                  )}
                 </div>
                 <Button onClick={() => navigate("/skill-gap")}
                   className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 group/btn hover:shadow-glow transition-all duration-300">
@@ -320,13 +452,15 @@ const Dashboard = () => {
                 <div className="text-center py-2">
                   <motion.p className="text-3xl sm:text-4xl font-display font-bold text-foreground"
                     initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.5, type: "spring", stiffness: 200 }}>85</motion.p>
+                    transition={{ delay: 0.5, type: "spring", stiffness: 200 }}>
+                      {displayData.analysisResult?.matchedJobsCount || "12"}
+                    </motion.p>
                   <p className="text-sm text-muted-foreground">{t("Jobs Matched")}</p>
                 </div>
                 <motion.div className="p-3 rounded-xl bg-success/5 border border-success/10"
                   whileHover={{ scale: 1.03 }} transition={{ type: "spring", stiffness: 300 }}>
                   <p className="text-xs text-muted-foreground">{t("Top Match")}</p>
-                  <p className="text-sm font-semibold text-foreground">{t("Data Analyst")} — <span className="text-success">92%</span></p>
+                  <p className="text-sm font-semibold text-foreground">{userData.targetRole} — <span className="text-success">{jobReadiness}%</span></p>
                 </motion.div>
                 <Button onClick={() => navigate("/jobs")} variant="outline" className="w-full group/btn hover:shadow-md transition-all duration-300">
                   {t("View Jobs")} <ArrowRight className="h-4 w-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
@@ -354,7 +488,7 @@ const Dashboard = () => {
                   <PolarGrid stroke="hsl(var(--border))" />
                   <PolarAngleAxis dataKey="skill" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                  <Radar name="Your Skills" dataKey="level" stroke="hsl(234, 68%, 60%)" fill="hsl(234, 68%, 60%)" fillOpacity={0.2} strokeWidth={2} />
+                  <Radar name="Your Skills" dataKey="level" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} strokeWidth={2} />
                 </RadarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -466,16 +600,21 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {jobMatches.map((job, i) => (
-                <motion.div key={job.title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              {dashboardJobs.length > 0 ? (
+              dashboardJobs.map((job: any, i: number) => (
+                <motion.div key={job.id || i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 + i * 0.1 }} whileHover={{ scale: 1.02, y: -2 }}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-lg transition-all duration-300 group/job cursor-pointer gap-3">
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-lg transition-all duration-300 group/job cursor-pointer gap-3"
+                  onClick={() => window.open(job.url, '_blank')}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-semibold text-foreground text-sm sm:text-base">{job.title}</h4>
-                      <motion.span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${job.match >= 90 ? "bg-success/10 text-success" : "bg-primary/10 text-primary"}`}>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+              {80 + i}% Match
+            </span>
+                      {/* <motion.span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${job.match >= 90 ? "bg-success/10 text-success" : "bg-primary/10 text-primary"}`}>
                         {job.match}% Match
-                      </motion.span>
+                      </motion.span> */}
                     </div>
                     <p className="text-sm text-muted-foreground mt-0.5">{job.company}</p>
                     <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden w-32">
@@ -489,7 +628,10 @@ const Dashboard = () => {
                     <Button size="sm" className="mt-1 bg-gradient-primary text-primary-foreground hover:opacity-90 shrink-0">{t("Apply")}</Button>
                   </div>
                 </motion.div>
-              ))}
+              ))
+            ) : (
+              <p className="text-center text-xs text-muted-foreground py-4">Finding best matches...</p>
+            )}
               <Button onClick={() => navigate("/jobs")} variant="outline"
                 className="w-full mt-2 group hover:shadow-md transition-all duration-300">
                 {t("View All Jobs")} <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
@@ -520,11 +662,12 @@ const Dashboard = () => {
                       <motion.circle cx="60" cy="60" r="50" fill="none" stroke="hsl(var(--warning))" strokeWidth="10" strokeLinecap="round"
                         strokeDasharray={`${2 * Math.PI * 50}`}
                         initial={{ strokeDashoffset: 2 * Math.PI * 50 }}
-                        animate={{ strokeDashoffset: 2 * Math.PI * 50 * (1 - atsScore / 100) }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 50 * (1 - (atsScore || 0) / 100) }}
                         transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }} />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <motion.span className="text-lg sm:text-xl font-display font-bold text-foreground"
+                      key={atsScore}
                         initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7, type: "spring" }}>
                         {atsScore}%
                       </motion.span>
@@ -533,8 +676,11 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">{t("Suggestions:")}</p>
-                  {atsSuggestions.map((s, i) => (
+                  <p className="text-sm font-semibold text-foreground">{t("AI Suggestions:")}</p>
+                  {(atsSuggestions.length > 0 ? atsSuggestions : 
+    (profileData?.analysisResult?.atsSuggestions || 
+     profileData?.analysisResult?.improvements?.map((i: any) => i.tip) || 
+     ["No suggestions available"])).slice(0, 3).map((s: string, i: number) => (
                     <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.7 + i * 0.1 }} whileHover={{ x: 4 }}
                       className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">

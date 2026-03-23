@@ -75,24 +75,50 @@ const ResumeAnalysis = () => {
 
     const data = await response.json();
     console.log("Server Response:", data);
+    const result = data.analysisResult || data.analysis;
 
-    if (response.ok && data.analysis) {
+    if (response.ok && result) {
       // Backend data ko local states mein bhariye
-      setDynamicSkills(data.analysis.skills || []);
-      setDynamicAtsScore(data.analysis.atsScore || 0);
-      setDynamicInsights(data.analysis.insights || []);
-      setDynamicImprovements(data.analysis.improvements || []);
-      setRawResumeText(data.resumeText || "");
-      const skillsString = data.analysis.skills.map((s: any) => s.name).join(", ");
-      localStorage.setItem("userSkills", skillsString); // Naya state for raw resume text
-      localStorage.setItem("userSkills", data.analysis.skills.map(s => s.name).join(", "));
-      setAnalyzed(true);
-      setResumeAnalyzed(true);
-    } else {
-      console.error("Analysis error:", data.message);
-      alert("Database error: " + data.message);
-      setUploaded(false);
+      const skills = result.skills || [];
+      setDynamicSkills(skills);
+      setDynamicAtsScore(result.atsScore || 0);
+      setDynamicInsights(result.insights || []);
+      setDynamicImprovements(result.improvements || []);
+      setRawResumeText(result.resumeText || "");
+    //   const skillsString = (result.skills || []).map((s: any) => s.name).join(", ");
+    //   localStorage.setItem("userSkills", skillsString); // Naya state for raw resume text
+    //   localStorage.setItem("userSkills", data.analysis.skills.map(s => s.name).join(", "));
+    //   setRawResumeText(data.resumeText || "");
+    //   setAnalyzed(true);
+    //   setResumeAnalyzed(true);
+    // } else {
+    //   console.error("Mapping Error: Check backend key name", data);
+    //   alert("Analysis Error: " + (data.message || "Invalid response format"));
+    //   setUploaded(false);
+    // }
+
+    if (data.resumeText) {
+        localStorage.setItem("rawResumeText", data.resumeText);
     }
+    
+    const extractedText = data.resumeText || result.resumeText || "";
+      console.log("Extracted Resume Text:", extractedText.substring(0, 100)); // Debug log
+      
+      setRawResumeText(extractedText);
+      localStorage.setItem("rawResumeText", extractedText);
+    if (skills.length > 0) {
+        const skillsString = skills.map((s: any) => s.name || s).join(", ");
+        localStorage.setItem("userSkills", skillsString);
+    }
+
+    setAnalyzed(true);
+    setResumeAnalyzed(true);
+} else {
+    // Agar result nahi mila toh backend ki galti hai
+    console.error("Mapping Error:", data);
+    alert("Backend error: " + (data.message || "Invalid Data Format"));
+    setUploaded(false);
+}
   } catch (error) {
     console.error("Critical Frontend Error:", error);
     alert("Connection error! Check if server is running on port 5000");

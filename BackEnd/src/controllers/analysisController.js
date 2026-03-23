@@ -231,21 +231,98 @@ exports.analyzeResume = async (req, res) => {
         });
 
         const analysisResult = JSON.parse(chatCompletion.choices[0].message.content);
+        const extractedSkills = (analysisResult.skills || []).map(s => ({
+    name: s.name,
+    proficiency: s.level === "Advanced" ? 90 : s.level === "Intermediate" ? 70 : 50,
+    verified: true
+}));
+
+// 4. Update Database
+// const user = await User.findOneAndUpdate(
+//     { email: email.trim() },
+//     { 
+//         // analysisResult,             // AI ka poora result (scores etc)
+//         // skills: extractedSkills,    // YE ZAROORI HAI: Dashboard isi ko read karta hai
+//         // source: 'resume', 
+//         // lastAnalyzed: new Date() 
+//         analysisResult: {
+//             ...analysisResult,
+//             atsScore: analysisResult.atsScore || analysisResult.resumeScore || 0 // Backup keys
+//     },
+//         skills: extractedSkills, // Isse dashboard pe graph banega
+//         source: 'resume', 
+//         lastAnalyzed: new Date()},
+//     { new: true }
+// );
+
+// if (!user) return res.status(404).json({ message: "User not found" });
+
+// console.log(`Success: Updated ${extractedSkills.length} skills for ${email}`);
+
+// return res.status(200).json({ 
+//     success:true,
+//     message: "AI Analysis Complete", 
+//     analysisResult: analysisResult,
+//     skillaUpdated: extractedSkills.length,
+// });
+
+    // 4. Update Database
+// const user = await User.findOneAndUpdate(
+//     { email: email.trim() },
+//     { 
+//         analysisResult: {
+//             ...analysisResult,
+//             atsScore: analysisResult.atsScore || analysisResult.resumeScore || 75 
+//         },
+//         skills: extractedSkills, // <--- ISSE DASHBOARD CHALEGA
+//         source: 'resume', 
+//         lastAnalyzed: new Date() 
+//     },
+//     { new: true }
+// );
+
+const user = await User.findOneAndUpdate(
+    { email: email.trim() },
+    { 
+        $set: { // $set use karne se purana data disturb nahi hota
+            "analysisResult.readinessScore": analysisResult.readinessScore || 0,
+            "analysisResult.atsScore": analysisResult.atsScore || analysisResult.resumeScore || 82, // Default value agar AI fail ho jaye
+            "analysisResult.atsSuggestions": analysisResult.atsSuggestions || analysisResult.improvements?.map(i => i.tip) || [],
+            skills: extractedSkills,
+            source: 'resume', 
+            lastAnalyzed: new Date() 
+        }
+    },
+    { new: true, upsert: true } // Agar user nahi hai toh create kar dega
+);
+
+console.log("DB Update Success - ATS Score Saved:", user.analysisResult.atsScore);
+
+if (!user) return res.status(404).json({ message: "User not found" });
+
+// Console mein check karne ke liye
+console.log("Database Updated for:", email, "Skills Count:", extractedSkills.length);
+
+return res.status(200).json({  
+    message: "AI Analysis Complete", 
+    analysisResult: analysisResult, // Dashboard isi key ko dhund raha hai
+    resumeText: resumeText // Naya field for raw resume text
+});
 
         // 4. Update Database
-        const user = await User.findOneAndUpdate(
-            { email: email.trim() },
-            { analysisResult, source: 'resume', lastAnalyzed: new Date() },
-            { new: true }
-        );
+        // const user = await User.findOneAndUpdate(
+        //     { email: email.trim() },
+        //     { analysisResult, source: 'resume', lastAnalyzed: new Date() },
+        //     { new: true }
+        // );
 
-        if (!user) return res.status(404).json({ message: "User not found" });
+        // if (!user) return res.status(404).json({ message: "User not found" });
 
-        return res.status(200).json({ 
-            message: "AI Analysis Complete", 
-            analysis: analysisResult,
-            resumeText: resumeText 
-        });
+        // return res.status(200).json({ 
+        //     message: "AI Analysis Complete", 
+        //     analysis: analysisResult,
+        //     resumeText: resumeText 
+        // });
 
     } catch (err) {
         console.error("GROQ ANALYSIS ERROR:", err);

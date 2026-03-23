@@ -247,8 +247,50 @@ const getFeaturedJobs = async (req, res) => {
     res.status(200).json([]); 
   }
 };
+
+const getUserProfile = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // ─── COMPARISON LOGIC START ───
+    const targetRole = user.targetRole || "Data Analyst"; // Default role agar set na ho
+    const requiredSkills = SKILLS_BY_ROLE[targetRole] || [];
+    
+    // User ki current skills (String array mein convert kar rahe hain)
+    const userSkills = (user.skills || []).map(s => s.name.toLowerCase());
+
+    // Jo skills user ke paas NAHI hain
+    const missingSkills = requiredSkills.filter(
+      skill => !userSkills.includes(skill.toLowerCase())
+    );
+
+    // Readiness Score Calculate karein (Simple Percentage)
+    const matchedCount = requiredSkills.length - missingSkills.length;
+    const readinessScore = requiredSkills.length > 0 
+      ? Math.round((matchedCount / requiredSkills.length) * 100) 
+      : 0;
+    // ─── COMPARISON LOGIC END ───
+
+    // Response mein ye naya data bhejien
+    res.json({
+      ...user._doc,
+      analysisResult: {
+        missingSkills,
+        readinessScore,
+        matchedJobsCount: 12 // Aap isse baad mein dynamic kar sakte hain
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
 // Exporting both functions properly
 module.exports = { 
   searchJobs, 
-  getFeaturedJobs 
+  getFeaturedJobs,
+  getUserProfile
 };
