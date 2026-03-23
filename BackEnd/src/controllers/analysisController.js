@@ -410,3 +410,22 @@ Example: If it's a book, platform should be 'Amazon' and type 'Book'. If it's a 
         res.status(500).json({ message: "Gap analysis failed" });
     }
 };
+
+// controllers/analysisController.js
+exports.generateQuestions = async (req, res) => {
+  const { role } = req.body;
+  
+  // Example Static Response (Baad mein Gemini AI yahan add kar sakte hain)
+  const questions = [
+    { 
+      question: `What are the most important skills for a ${role}?`,
+      sampleFeedback: { correctness: 80, confidence: 70, clarity: 90, improvements: "Be specific." }
+    },
+    { 
+      question: `Describe a time you failed as a ${role} and how you handled it.`,
+      sampleFeedback: { correctness: 75, confidence: 80, clarity: 85, improvements: "Focus on the learning." }
+    }
+  ];
+
+  res.json(questions);
+};
