@@ -520,6 +520,12 @@ import { Badge } from "@/components/ui/badge";
 import { Mic, MicOff, ArrowRight, RotateCcw, CheckCircle2, Target, Brain, MessageSquare, ChevronRight } from "lucide-react";
 import { useTranslation } from "@/hooks/use-translation";
 import { useSearchParams } from "react-router-dom";
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
@@ -560,9 +566,45 @@ const MockInterview = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [realTimeFeedback, setRealTimeFeedback] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // --- LOGIC START ---
+  const startListening = () => {
+  // Check if browser supports SpeechRecognition
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    alert("Bhai, aapka browser voice support nahi karta. Chrome use karein!");
+    return;
+  }
 
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-IN'; // English with Indian accent
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    setIsListening(true);
+    console.log("Voice activated, speak now...");
+  };
+
+  recognition.onresult = (event: any) => {
+    const transcript = event.results[0][0].transcript;
+    // Yahan 'answer' state ko update karein jo aapke input field se connected hai
+    setAnswer(transcript); 
+    setIsListening(false);
+  };
+
+  recognition.onerror = () => {
+    setIsListening(false);
+  };
+
+  recognition.onend = () => {
+    setIsListening(false);
+  };
+
+  recognition.start();
+};
   const fetchAIQuestions = async (roleToUse: string) => {
     if (!roleToUse) return;
     setIsGenerating(true);
@@ -790,10 +832,11 @@ const MockInterview = () => {
                         {isAnalyzing ? "AI is Analyzing..." : t("Submit Answer")} <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
                       <Button
-                        onClick={toggleRecording}
-                        variant="outline"
+                        onClick={startListening}
+                        variant={isListening ? "destructive" : "outline"}
                         className={isRecording ? "border-destructive text-destructive" : ""}
                       >
+                        <Mic className={`h-6 w-6 ${isListening ? 'text-white' : 'text-primary'}`} />
                         {isRecording ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
                         {isRecording ? t("Stop") : t("Voice")}
                       </Button>

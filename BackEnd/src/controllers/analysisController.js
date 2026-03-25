@@ -506,3 +506,40 @@ exports.generateQuestions = async (req, res) => {
 
   res.json(questions);
 };
+exports.analyzeManualProfile = async (req, res) => {
+  try {
+    const { name, jobRole, skills, experience, education, location } = req.body;
+
+    const prompt = `
+      Analyze this user profile for career insights:
+      Name: ${name}
+      Target Role: ${jobRole}
+      Skills: ${skills.join(", ")}
+      Experience: ${experience}
+      Education: ${education}
+      Location: ${location}
+
+      Return a STRICT JSON response with these keys:
+      {
+        "targetRole": "The formal job title",
+        "jobMatches": "A realistic number of jobs available in ${location} (e.g., '25+')",
+        "missingSkillsCount": "Number of key skills they need to learn (e.g., 4)",
+        "expectedSalary": "A realistic salary range in LPA for ${location} (e.g., '₹6-10 LPA')",
+        "marketInsights": ["Point 1", "Point 2"],
+        "summary": "One line professional summary"
+      }
+    `;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      response_format: { type: "json_object" },
+    });
+
+    const insights = JSON.parse(chatCompletion.choices[0].message.content);
+    res.json(insights);
+  } catch (error) {
+    console.error("AI Analysis Error:", error);
+    res.status(500).json({ message: "Failed to analyze profile" });
+  }
+};

@@ -8,6 +8,7 @@ import NavbarLanguageDropdown from "@/components/NavbarLanguageDropdown";
 import NavbarReadPage from "@/components/NavbarReadPage";
 import NarratorSettings from "@/components/NarratorSettings";
 import { useTranslation } from "@/hooks/use-translation";
+import { Users } from "lucide-react"; // Icon ke liye
 
 const navItems = [
   { labelKey: "Features", href: "#features" },
@@ -50,6 +51,17 @@ const Navbar = () => {
             {t("Get Started")}
           </Button>
         </div>
+        <div className="flex gap-4">
+        {/* COMMUNITY BUTTON */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate("/community")}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          <span>Community</span>
+        </Button>
+      </div>
 
         <div className="flex items-center gap-1 md:hidden">
           <NavbarLanguageDropdown />
