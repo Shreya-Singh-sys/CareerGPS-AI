@@ -92,7 +92,7 @@ const NoResumePage = () => {
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => { //added async for backend call
     if (!name.trim()) return;
     updateUserData({
       name: name.trim(),
@@ -110,6 +110,29 @@ const NoResumePage = () => {
         }))
       );
     }
+// -------------------------------------------------
+    try {
+    const res = await fetch("http://localhost:5000/api/no-resume", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        role: profession || profSearch,
+        skills: selectedSkills,
+        experience,
+        education,
+        location: location || locSearch,
+      }),
+    });
+
+    const data = await res.json();
+    console.log("Backend Response:", data);
+  } catch (err) {
+    console.error(err);
+  }
+// -------------------------------------------------
     setCurrentStep(2);
     setLoadingMsg(0);
     const msgs = [0, 1, 2];

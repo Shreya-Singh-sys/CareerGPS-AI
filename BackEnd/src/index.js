@@ -3,62 +3,130 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 const axios = require('axios');
+const multer = require('multer');
+const fs = require('fs');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+const OpenAI = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// 🔥 FFmpeg setup
+ffmpeg.setFfmpegPath(ffmpegPath);
+
+// 🔥 OpenAI setup
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// 🔥 Multer setup
+const upload = multer({ dest: "uploads/" });
+
+// Routes import
 const authRoutes = require('./routes/authRoutes');
 const analysisRoutes = require('./routes/analysisRoutes');
-// const {searchJobs} = require('./controllers/jobController');
 const jobControllerFile = require('./controllers/jobController.js'); 
 const searchJobs = jobControllerFile.searchJobs;
 const analysisController = require('./controllers/analysisController');
 const jobRoutes = require('./routes/jobRoutes');
-// Apne User model ka sahi path yahan likhein
-const User = require('./models/User'); // Agar aapka model models folder mein hai toh
+const User = require('./models/User');
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:8080', // React app ka URL
+  origin: 'http://localhost:8080',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-})); // Allows your React app to make requests
-app.use(express.json()); // Allows parsing of JSON data
+}));
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// DB connect
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Database Connected Successfully! ✅"))
   .catch((err) => console.log("Database Connection Failed! ❌", err));
 
-// Basic Test Route
+// 🔥 TEST ROUTE
 app.get('/api/status', (req, res) => {
   res.json({ message: "Backend is running smoothly!", timestamp: new Date() });
 });
 
-// Auth Routes
-app.use('/api/auth', authRoutes);
-// 1. Pehle ye Skills Map define karein (Route se upar)
-// const SKILLS_BY_ROLE = {
-//   "Data Analyst": ["SQL", "Python", "Power BI", "Excel", "Tableau", "Statistics"],
-//   "Frontend Developer": ["React", "JavaScript", "HTML", "CSS", "Tailwind CSS", "TypeScript"],
-//   "Backend Developer": ["Node.js", "Express", "MongoDB", "SQL", "REST API", "Docker"],
-//   "Full Stack Developer": ["React", "Node.js", "MongoDB", "JavaScript", "AWS"],
-//   "Software Engineer": ["Java", "Data Structures", "Algorithms", "System Design", "SQL"]
-// };
+// ==========================
+// 🎥 VIDEO + AUDIO FEATURE
+// ==========================
+app.post("/api/video-upload", upload.single("video"), async (req, res) => {
+  try {
+    const videoPath = req.file.path;
+    const audioPath = `${videoPath}.mp3`;
 
-// 2. Ab profile route ko update karein
+    // 1. Extract audio
+    await new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .output(audioPath)
+        .noVideo()
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+
+    // 2. Transcribe
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(audioPath),
+      model: "gpt-4o-transcribe",
+    });
+
+    const text = transcription.text;
+
+    // 3. Extract structured data
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Extract name, skills, education, experience, role from text. Return valid JSON only.",
+        },
+        {
+          role: "user",
+          content: text,
+        },
+      ],
+    });
+
+    const extracted = JSON.parse(completion.choices[0].message.content);
+
+    res.json({
+      transcript: text,
+      extracted,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Video processing failed" });
+  }
+});
+
+// ==========================
+// 🔐 AUTH
+// ==========================
+app.use('/api/auth', authRoutes);
+
+// ==========================
+// 👤 PROFILE ROUTE
+// ==========================
 app.get('/api/user/profile/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const user = await User.findOne({ email });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const targetRole = user.targetRole || "Software Developer";
-
-    // REAL-TIME: Ab mock data nahi, Adzuna se fetch ho raha hai
     const requiredSkills = await getMarketRequiredSkills(targetRole);
-    console.log("User Skills from DB:", user.skills);
-    console.log("Required Market Skills:", requiredSkills);
-    const userSkills = (user.skills || []).map(s => 
+
+    const userSkills = (user.skills || []).map(s =>
       typeof s === 'string' ? s.toLowerCase() : s.name.toLowerCase()
     );
 
@@ -74,60 +142,95 @@ app.get('/api/user/profile/:email', async (req, res) => {
       analysisResult: {
         missingSkills: missingSkills.length > 0 ? missingSkills : ["You match the market!"],
         readinessScore,
-        lastMarketUpdate: new Date().toISOString() // Batao ki data kab ka hai
+        lastMarketUpdate: new Date().toISOString()
       }
     });
+
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
   }
 });
-// Latest Market Skills Fetch karne ka function
+
+// ==========================
+// 🔥 MARKET SKILLS FUNCTION
+// ==========================
 const getMarketRequiredSkills = async (role) => {
   try {
-    console.log(`Searching live market skills for: ${role}`);
-    
     const appId = "3b59f8b2";
     const appKey = "4c5bdd1d6ac22fc4ea23b970aff8849e";
-    
+
     const response = await axios.get(
-      `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=15&what=${encodeURIComponent(role)}`,
-      { timeout: 8000 }
+      `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=15&what=${encodeURIComponent(role)}`
     );
 
     const results = response.data.results || [];
     const fullText = results.map(j => j.description).join(" ").toLowerCase();
-    
+
     const skillMasterList = [
-      "React", "Node.js", "Python", "SQL", "Java", "JavaScript", "Excel", 
-      "Tableau", "Power BI", "AWS", "Azure", "Docker", "Kubernetes", 
-      "TypeScript", "HTML", "CSS", "Machine Learning", "C++", "Statistics", "Next.js"
+      "React","Node.js","Python","SQL","Java","JavaScript","Excel",
+      "Tableau","Power BI","AWS","Docker","TypeScript","HTML","CSS"
     ];
 
-    // FIX: Escape special characters before creating RegExp
     const detected = skillMasterList.filter(skill => {
-      const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${escapedSkill}\\b`, 'i');
-      return regex.test(fullText);
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(fullText);
     });
 
-    console.log("Detected Skills from Market:", detected);
-    return detected.length > 0 ? detected.slice(0, 5) : ["Analytical Skills", "Communication", "Problem Solving"];
+    return detected.length > 0 ? detected.slice(0, 5) : ["Problem Solving"];
 
-  } catch (error) {
-    console.error("Market Skill Fetch Error:", error.message);
-    return ["SQL", "Python", "Excel", "Tableau"]; 
+  } catch {
+    return ["SQL","Python","Excel"];
   }
 };
 
-// Analysis Routes
+// ==========================
+// 🔥 NO RESUME FIX (BUG FIXED)
+// ==========================
+app.post('/api/no-resume', async (req, res) => {
+  try {
+    const { name, role, skills = [], experience, education, location } = req.body;
+
+    console.log("Incoming Data:", req.body); // ✅ FIXED (pehle data undefined tha)
+
+    const requiredSkills = await getMarketRequiredSkills(role);
+    const userSkills = skills.map(s => s.toLowerCase());
+
+    const missingSkills = requiredSkills.filter(
+      skill => !userSkills.includes(skill.toLowerCase())
+    );
+
+    const readinessScore = Math.round(
+      ((requiredSkills.length - missingSkills.length) / requiredSkills.length) * 100
+    );
+
+    res.json({
+      name,
+      role,
+      experience,
+      education,
+      location,
+      analysisResult: {
+        missingSkills: missingSkills.length > 0 ? missingSkills : ["You match the market!"],
+        readinessScore,
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// ==========================
+// OTHER ROUTES
+// ==========================
 app.use('/api/analysis', analysisRoutes);
-app.use(express.urlencoded({ extended: true }));
 app.post('/api/jobs/search', searchJobs);
 app.post('/api/analysis/generate-questions', analysisController.generateQuestions);
 app.use('/api/jobs', jobRoutes);
 
-// Start Server
+// ==========================
+// START SERVER
+// ==========================
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
-
