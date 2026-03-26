@@ -6,6 +6,7 @@ const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const authRoutes = require('./routes/authRoutes');
 const analysisRoutes = require('./routes/analysisRoutes');
 // const {searchJobs} = require('./controllers/jobController');
@@ -125,6 +126,7 @@ app.use(express.urlencoded({ extended: true }));
 app.post('/api/jobs/search', searchJobs);
 app.post('/api/analysis/generate-questions', analysisController.generateQuestions);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/analysis', analysisRoutes);
 
 // Start Server
 app.listen(PORT, () => {

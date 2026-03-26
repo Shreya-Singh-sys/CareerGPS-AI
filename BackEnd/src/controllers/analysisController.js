@@ -391,38 +391,70 @@ exports.simulateCareer = async (req, res) => {
 };
 
 exports.generateInterviewQuestions = async (req, res) => {
+
     try {
+
         const { role } = req.body;
+
         const prompt = `
+
             Generate exactly 10 professional interview questions for the role: ${role}.
+
             Return ONLY a JSON object with a key named "questions".
-            
+
+           
+
             Format:
+
             {
+
               "questions": [
+
                 {
+
                   "question": "string",
+
                   "sampleFeedback": { "correctness": 80, "confidence": 70, "clarity": 85, "improvements": "string" }
+
                 }
+
               ]
+
             }
+
         `;
+
         const chatCompletion = await groq.chat.completions.create({
+
             messages: [{ role: "user", content: prompt }],
+
             model: "llama-3.3-70b-versatile",
+
             response_format: { type: "json_object" }
+
         });
+
         const rawData = JSON.parse(chatCompletion.choices[0].message.content);
-        
+
+       
+
         // Safety check: Agar questions key nahi hai toh direct array check karo
+
         const questions = rawData.questions || (Array.isArray(rawData) ? rawData : []);
 
+
+
         res.status(200).json(questions);
+
     } catch (err) {
+
         console.error("MOCK ERROR:", err);
+
         res.status(500).json({ message: "Failed to generate: " + err.message });
+
     }
 };
+
 
 exports.analyzeInterviewAnswer = async (req, res) => {
     try {
@@ -488,23 +520,56 @@ Example: If it's a book, platform should be 'Amazon' and type 'Book'. If it's a 
     }
 };
 
-// controllers/analysisController.js
-exports.generateQuestions = async (req, res) => {
-  const { role } = req.body;
-  
-  // Example Static Response (Baad mein Gemini AI yahan add kar sakte hain)
-  const questions = [
-    { 
-      question: `What are the most important skills for a ${role}?`,
-      sampleFeedback: { correctness: 80, confidence: 70, clarity: 90, improvements: "Be specific." }
-    },
-    { 
-      question: `Describe a time you failed as a ${role} and how you handled it.`,
-      sampleFeedback: { correctness: 75, confidence: 80, clarity: 85, improvements: "Focus on the learning." }
-    }
-  ];
 
-  res.json(questions);
+// exports.generateQuestions = async (req, res) => {
+//   const { role } = req.body;
+  
+//   // Example Static Response (Baad mein Gemini AI yahan add kar sakte hain)
+//   const questions = [
+//     { 
+//       question: `What are the most important skills for a ${role}?`,
+//       sampleFeedback: { correctness: 80, confidence: 70, clarity: 90, improvements: "Be specific." }
+//     },
+//     { 
+//       question: `Describe a time you failed as a ${role} and how you handled it.`,
+//       sampleFeedback: { correctness: 75, confidence: 80, clarity: 85, improvements: "Focus on the learning." }
+//     }
+//   ];
+
+//   res.json(questions);
+// };
+exports.generateQuestions = async (req, res) => {
+  try {
+    const { role, difficulty = "Mid-Level", language = "English" } = req.body;
+
+    // Check if API Key is loaded
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("Missing Gemini API Key in .env");
+      return res.status(500).json({ error: "API Key not configured" });
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Generate exactly 10 interview questions for a ${role} position. 
+    Level: ${difficulty}. Language: ${language}.
+    For each question, provide an 'idealAnswer' (max 3 sentences).
+    Return ONLY a valid JSON array: [{"question": "...", "idealAnswer": "..."}]`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text().trim();
+    
+    // Clean formatting
+    text = text.replace(/```json|```/g, "").trim();
+
+    const questionsArray = JSON.parse(text);
+    console.log(`Successfully generated ${questionsArray.length} questions`);
+    
+    res.status(200).json(questionsArray);
+  } catch (error) {
+    console.error("GEMINI ERROR:", error.message);
+    res.status(500).json({ error: "AI failed to generate: " + error.message });
+  }
 };
 exports.analyzeManualProfile = async (req, res) => {
   try {
@@ -541,5 +606,47 @@ exports.analyzeManualProfile = async (req, res) => {
   } catch (error) {
     console.error("AI Analysis Error:", error);
     res.status(500).json({ message: "Failed to analyze profile" });
+  }
+};
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Function to generate real questions
+exports.generateQuestions = async (req, res) => {
+  try {
+    const { role, difficulty, language } = req.body;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Generate 10 interview questions for a ${role} position. 
+    Level: ${difficulty}. Language: ${language}.
+    For each question, provide an 'idealAnswer' (max 3 sentences).
+    Return ONLY a JSON array: [{"question": "...", "idealAnswer": "..."}]`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().replace(/```json|```/g, ""); // Clean formatting
+    res.json(JSON.parse(text));
+  } catch (error) {
+    res.status(500).json({ error: "AI Generation failed" });
+  }
+};
+
+// Function to analyze user answer
+exports.analyzeAnswer = async (req, res) => {
+  try {
+    const { question, answer, role } = req.body;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Role: ${role}. Question: ${question}. User Answer: ${answer}.
+    Evaluate this answer. Return ONLY JSON: 
+    {"correctness": 0-100, "confidence": 0-100, "clarity": 0-100, "improvements": "short feedback"}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().replace(/```json|```/g, "");
+    res.json(JSON.parse(text));
+  } catch (error) {
+    res.status(500).json({ error: "Analysis failed" });
   }
 };

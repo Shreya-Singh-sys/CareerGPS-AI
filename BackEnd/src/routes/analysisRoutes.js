@@ -14,4 +14,5 @@ router.post('/generate-questions', analysisController.generateInterviewQuestions
 router.post('/analyze-answer', analysisController.analyzeInterviewAnswer);
 router.post('/skill-gap', analysisController.getSkillGapAnalysis);
 router.post("/manual-profile", analysisController.analyzeManualProfile);
+
 module.exports = router;

@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.100.0",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -24,6 +25,7 @@
     "mongoose": "^9.3.1",
     "multer": "^2.1.1",
     "nodemon": "^3.1.14",
+    "openai": "^6.32.0",
     "pdf2json": "^4.0.2",
     "react-webcam": "^7.2.0"
   }
